@@ -17,7 +17,9 @@ DEFAULT_SETTINGS = {
     "dark_mode": False,
     "osc_ip": "0.0.0.0",
     "osc_port": 5555,
-    "osc_enabled": True
+    "osc_enabled": True,
+    "osc_broadcast_port": 9000,  # Порт для отправки OSC-сообщений
+    "osc_broadcast_ip": "255.255.255.255"  # IP для отправки OSC-сообщений (широковещательный)
 }
 
 # Менеджер настроек
@@ -47,7 +49,7 @@ def load_settings() -> Dict[str, Any]:
             if isinstance(value, str) and value.lower() in ['true', 'false']:
                 value = value.lower() == 'true'
             # Преобразуем числовые значения из строк в числа
-            elif key == 'osc_port' and isinstance(value, str) and value.isdigit():
+            elif key in ['osc_port', 'osc_broadcast_port'] and isinstance(value, str) and value.isdigit():
                 value = int(value)
             settings_dict[key] = value
     
@@ -91,10 +93,13 @@ except ImportError as e:
 # Настройки OSC-сервера из параметров приложения
 DEFAULT_OSC_IP = app_settings.get("osc_ip", "0.0.0.0")
 DEFAULT_OSC_PORT = app_settings.get("osc_port", 5555)
+DEFAULT_OSC_BROADCAST_IP = app_settings.get("osc_broadcast_ip", "255.255.255.255")
+DEFAULT_OSC_BROADCAST_PORT = app_settings.get("osc_broadcast_port", 9000)
 
 # OSC-адреса для управления Shogun Live
 OSC_START_RECORDING = "/RecordStartShogunLive"
 OSC_STOP_RECORDING = "/RecordStopShogunLive"
+OSC_CAPTURE_NAME_CHANGED = "/ShogunLiveCaptureName"  # Новый адрес для уведомления об изменении имени захвата
 
 # Настройки логирования
 LOG_FORMAT = '%(asctime)s [%(levelname)s] %(message)s'

@@ -20,6 +20,7 @@ class ShogunWorker(QThread):
     status_signal = pyqtSignal(str)       # Сигнал статуса
     recording_signal = pyqtSignal(bool)   # Сигнал состояния записи
     take_name_signal = pyqtSignal(str)    # Сигнал названия текущего тейка
+    capture_name_changed_signal = pyqtSignal(str)  # Сигнал изменения имени захвата
     
     def __init__(self):
         super().__init__()
@@ -32,6 +33,7 @@ class ShogunWorker(QThread):
         self.loop = None
         self._last_check_time = 0  # Для оптимизации частоты проверок
         self._check_interval = 1.0  # Интервал проверки в секундах
+        self._current_capture_name = ""  # Текущее имя захвата для отслеживания изменений
         
     def run(self):
         """Основной метод потока"""
@@ -74,6 +76,9 @@ class ShogunWorker(QThread):
                                 
                                 # Обновляем имя тейка, если есть доступ к capture
                                 self._update_take_name()
+                                
+                                # Проверяем изменение имени захвата
+                                self.loop.run_until_complete(self._check_capture_name_change())
                     else:
                         if self.connected:
                             self.logger.warning("Shogun Live не обнаружен. Соединение потеряно.")
@@ -92,6 +97,29 @@ class ShogunWorker(QThread):
                 self.logger.error(f"Ошибка в основном цикле мониторинга: {e}")
                 # Продолжаем работу после ошибки
                 time.sleep(1)
+    
+    async def _check_capture_name_change(self) -> None:
+        """Проверяет изменение имени захвата в Shogun Live"""
+        try:
+            if not self.capture:
+                return
+                
+            # Получаем текущее имя захвата
+            result, capture_name = self.capture.capture_name()
+            
+            # Проверяем успешность запроса
+            if not result:
+                self.logger.debug(f"Не удалось получить имя захвата: {result}")
+                return
+                
+            # Если имя изменилось, отправляем сигнал
+            if capture_name != self._current_capture_name:
+                self.logger.info(f"Имя захвата изменилось: '{self._current_capture_name}' -> '{capture_name}'")
+                self._current_capture_name = capture_name
+                self.capture_name_changed_signal.emit(capture_name)
+                
+        except Exception as e:
+            self.logger.debug(f"Ошибка при проверке имени захвата: {e}")
     
     def _update_take_name(self) -> None:
         """Обновляет имя текущего тейка"""
@@ -150,6 +178,15 @@ class ShogunWorker(QThread):
             if not await self._test_connection():
                 self.logger.warning("Соединение установлено, но API не отвечает")
                 return False
+            
+            # Получаем текущее имя захвата при подключении
+            try:
+                result, capture_name = self.capture.capture_name()
+                if result:
+                    self._current_capture_name = capture_name
+                    self.logger.info(f"Текущее имя захвата: '{capture_name}'")
+            except Exception as e:
+                self.logger.debug(f"Не удалось получить имя захвата при подключении: {e}")
                 
             self.logger.info("Подключено к Shogun Live")
             return True
@@ -344,6 +381,33 @@ class ShogunWorker(QThread):
                     return True
                 except Exception as e2:
                     self.logger.error(f"Не удалось остановить запись после переподключения: {e2}")
+            return False
+    
+    async def set_capture_name(self, name: str) -> bool:
+        """
+        Устанавливает имя захвата в Shogun Live
+        
+        Args:
+            name: Новое имя захвата
+            
+        Returns:
+            bool: True если имя успешно установлено, иначе False
+        """
+        try:
+            if not self.capture:
+                self.logger.error("Нет соединения с Shogun Live")
+                return False
+                
+            result = self.capture.set_capture_name(name)
+            if result:
+                self.logger.info(f"Имя захвата установлено: '{name}'")
+                self._current_capture_name = name
+                return True
+            else:
+                self.logger.error(f"Не удалось установить имя захвата: {result}")
+                return False
+        except Exception as e:
+            self.logger.error(f"Ошибка при установке имени захвата: {e}")
             return False
     
     def stop(self):

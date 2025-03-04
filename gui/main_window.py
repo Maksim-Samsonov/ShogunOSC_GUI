@@ -161,6 +161,32 @@ class ShogunOSCApp(QMainWindow):
         # Сигналы от Shogun Worker для обновления статусной строки
         self.shogun_worker.connection_signal.connect(self.update_status_bar)
         self.shogun_worker.recording_signal.connect(self.update_recording_status)
+        
+        # Сигнал изменения имени захвата
+        self.shogun_worker.capture_name_changed_signal.connect(self.on_capture_name_changed)
+    
+    def on_capture_name_changed(self, new_name):
+        """Обработчик изменения имени захвата в Shogun Live"""
+        self.logger.info(f"Имя захвата изменилось: '{new_name}'")
+        
+        # Обновляем информацию в интерфейсе
+        self.status_panel.shogun_panel.update_capture_name(new_name)
+        
+        # Отправляем OSC-сообщение об изменении имени захвата
+        if self.osc_server:
+            # Получаем настройки отправки из панели OSC
+            broadcast_settings = self.status_panel.osc_panel.get_broadcast_settings()
+            
+            # Обновляем настройки в конфигурации
+            config.app_settings["osc_broadcast_ip"] = broadcast_settings["ip"]
+            config.app_settings["osc_broadcast_port"] = broadcast_settings["port"]
+            
+            # Отправляем сообщение
+            success = self.osc_server.send_osc_message(config.OSC_CAPTURE_NAME_CHANGED, new_name)
+            if success:
+                self.logger.info(f"Отправлено OSC-сообщение: {config.OSC_CAPTURE_NAME_CHANGED} -> '{new_name}'")
+                # Добавляем в журнал OSC-сообщений
+                self.log_panel.add_osc_message(config.OSC_CAPTURE_NAME_CHANGED, f"'{new_name}'")
     
     def update_status_bar(self, connected):
         """Обновление статусной строки при изменении состояния подключения"""
@@ -311,6 +337,12 @@ class ShogunOSCApp(QMainWindow):
         config.app_settings["osc_ip"] = self.status_panel.osc_panel.ip_input.text()
         config.app_settings["osc_port"] = self.status_panel.osc_panel.port_input.value()
         config.app_settings["osc_enabled"] = self.status_panel.osc_panel.osc_enabled.isChecked()
+        
+        # Сохраняем настройки отправки OSC-сообщений
+        broadcast_settings = self.status_panel.osc_panel.get_broadcast_settings()
+        config.app_settings["osc_broadcast_ip"] = broadcast_settings["ip"]
+        config.app_settings["osc_broadcast_port"] = broadcast_settings["port"]
+        
         config.save_settings(config.app_settings)
     
     def show_error_dialog(self, title, message):

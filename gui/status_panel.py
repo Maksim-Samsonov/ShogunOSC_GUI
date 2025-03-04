@@ -42,6 +42,11 @@ class ShogunPanel(QGroupBox):
         self.take_label = QLabel("Нет данных")
         layout.addWidget(self.take_label, 2, 1)
         
+        # Добавляем поле для отображения имени захвата
+        layout.addWidget(QLabel("Имя захвата:"), 3, 0)
+        self.capture_name_label = QLabel("Нет данных")
+        layout.addWidget(self.capture_name_label, 3, 1)
+        
         # Кнопки управления
         button_layout = QHBoxLayout()
         
@@ -59,7 +64,7 @@ class ShogunPanel(QGroupBox):
         self.stop_button.setEnabled(False)
         button_layout.addWidget(self.stop_button)
         
-        layout.addLayout(button_layout, 3, 0, 1, 2)
+        layout.addLayout(button_layout, 4, 0, 1, 2)
         self.setLayout(layout)
     
     def connect_signals(self):
@@ -67,6 +72,7 @@ class ShogunPanel(QGroupBox):
         self.shogun_worker.connection_signal.connect(self.update_connection_status)
         self.shogun_worker.recording_signal.connect(self.update_recording_status)
         self.shogun_worker.take_name_signal.connect(self.update_take_name)
+        self.shogun_worker.capture_name_changed_signal.connect(self.update_capture_name)
     
     def update_connection_status(self, connected):
         """Обновление отображения статуса подключения"""
@@ -98,6 +104,10 @@ class ShogunPanel(QGroupBox):
     def update_take_name(self, name):
         """Обновление имени текущего тейка"""
         self.take_label.setText(name)
+    
+    def update_capture_name(self, name):
+        """Обновление имени захвата"""
+        self.capture_name_label.setText(name)
     
     def reconnect_shogun(self):
         """Запуск переподключения к Shogun Live"""
@@ -152,26 +162,51 @@ class OSCPanel(QGroupBox):
         """Инициализация интерфейса панели OSC"""
         layout = QGridLayout()
         
-        layout.addWidget(QLabel("IP:"), 0, 0)
-        self.ip_input = QLineEdit(config.DEFAULT_OSC_IP)
-        layout.addWidget(self.ip_input, 0, 1)
+        # Настройки приема OSC-сообщений
+        layout.addWidget(QLabel("<b>Настройки приема:</b>"), 0, 0, 1, 2)
         
-        layout.addWidget(QLabel("Порт:"), 1, 0)
+        layout.addWidget(QLabel("IP:"), 1, 0)
+        self.ip_input = QLineEdit(config.DEFAULT_OSC_IP)
+        layout.addWidget(self.ip_input, 1, 1)
+        
+        layout.addWidget(QLabel("Порт:"), 2, 0)
         self.port_input = QSpinBox()
         self.port_input.setRange(1000, 65535)
         self.port_input.setValue(config.DEFAULT_OSC_PORT)
-        layout.addWidget(self.port_input, 1, 1)
+        layout.addWidget(self.port_input, 2, 1)
+        
+        # Настройки отправки OSC-сообщений
+        layout.addWidget(QLabel("<b>Настройки отправки:</b>"), 3, 0, 1, 2)
+        
+        layout.addWidget(QLabel("IP:"), 4, 0)
+        self.broadcast_ip_input = QLineEdit(config.DEFAULT_OSC_BROADCAST_IP)
+        layout.addWidget(self.broadcast_ip_input, 4, 1)
+        
+        layout.addWidget(QLabel("Порт:"), 5, 0)
+        self.broadcast_port_input = QSpinBox()
+        self.broadcast_port_input.setRange(1000, 65535)
+        self.broadcast_port_input.setValue(config.DEFAULT_OSC_BROADCAST_PORT)
+        layout.addWidget(self.broadcast_port_input, 5, 1)
         
         self.osc_enabled = QCheckBox("Включить OSC-сервер")
         self.osc_enabled.setChecked(config.app_settings.get("osc_enabled", True))
-        layout.addWidget(self.osc_enabled, 2, 0, 1, 2)
+        layout.addWidget(self.osc_enabled, 6, 0, 1, 2)
         
         # Информация о командах OSC
-        layout.addWidget(QLabel("Доступные команды:"), 3, 0, 1, 2)
-        layout.addWidget(QLabel(f"Старт записи: {config.OSC_START_RECORDING}"), 4, 0, 1, 2)
-        layout.addWidget(QLabel(f"Стоп записи: {config.OSC_STOP_RECORDING}"), 5, 0, 1, 2)
+        layout.addWidget(QLabel("<b>Доступные команды:</b>"), 7, 0, 1, 2)
+        layout.addWidget(QLabel(f"Старт записи: {config.OSC_START_RECORDING}"), 8, 0, 1, 2)
+        layout.addWidget(QLabel(f"Стоп записи: {config.OSC_STOP_RECORDING}"), 9, 0, 1, 2)
+        layout.addWidget(QLabel(f"Установка имени: /SetCaptureName [имя]"), 10, 0, 1, 2)
+        layout.addWidget(QLabel(f"Уведомление об изменении: {config.OSC_CAPTURE_NAME_CHANGED}"), 11, 0, 1, 2)
         
         self.setLayout(layout)
+        
+    def get_broadcast_settings(self):
+        """Получение настроек для отправки OSC-сообщений"""
+        return {
+            "ip": self.broadcast_ip_input.text(),
+            "port": self.broadcast_port_input.value()
+        }
 
 class StatusPanel(QWidget):
     """Составная панель статуса и настроек"""
