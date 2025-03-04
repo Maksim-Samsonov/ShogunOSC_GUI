@@ -7,10 +7,22 @@
 import sys
 import traceback
 import logging
-from PyQt5.QtWidgets import QApplication, QMessageBox
+import argparse
+import os
+from PyQt5.QtWidgets import QApplication, QMessageBox, QSplashScreen
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt, QTimer
 
-from logger.custom_logger import setup_logging
+from logger.custom_logger import setup_logging, log_system_info
 import config
+
+def parse_arguments():
+    """Парсинг аргументов командной строки"""
+    parser = argparse.ArgumentParser(description='ShogunOSC GUI - приложение для управления Shogun Live через OSC')
+    parser.add_argument('--log-file', action='store_true', help='Включить логирование в файл')
+    parser.add_argument('--log-dir', type=str, help='Директория для файлов логов')
+    parser.add_argument('--debug', action='store_true', help='Включить отладочный режим')
+    return parser.parse_args()
 
 def show_error_message(message, details=None):
     """Показывает диалоговое окно с ошибкой"""
@@ -26,9 +38,16 @@ def show_error_message(message, details=None):
 def main():
     """Основная функция запуска приложения"""
     try:
+        # Парсим аргументы командной строки
+        args = parse_arguments()
+        
         # Настройка логирования
-        setup_logging()
-        logger = logging.getLogger('ShogunOSC')
+        log_level = logging.DEBUG if args.debug else logging.INFO
+        logger = setup_logging(args.log_file, args.log_dir)
+        logger.setLevel(log_level)
+        
+        # Логируем информацию о системе
+        log_system_info(logger)
         
         # Проверяем успешность импорта библиотек в config
         if not config.IMPORT_SUCCESS:
@@ -54,8 +73,19 @@ def main():
         # Создаем приложение
         app = QApplication(sys.argv)
         app.setStyle('Fusion')
+        app.setApplicationName("ShogunOSC")
+        app.setApplicationVersion(config.APP_VERSION)
         
-        # Создаем и показываем главное окно
+        # Создаем заставку при запуске
+        splash = None
+        splash_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources", "splash.png")
+        if os.path.exists(splash_path):
+            splash_pixmap = QPixmap(splash_path)
+            splash = QSplashScreen(splash_pixmap)
+            splash.show()
+            app.processEvents()
+        
+        # Создаем главное окно
         window = ShogunOSCApp()
         
         # Применяем тему при запуске если нужно
@@ -64,7 +94,12 @@ def main():
             app.setPalette(get_palette(True))
             app.setStyleSheet(get_stylesheet(True))
         
-        window.show()
+        # Закрываем заставку и показываем главное окно
+        if splash:
+            # Небольшая задержка для отображения заставки
+            QTimer.singleShot(1500, lambda: (splash.finish(window), window.show()))
+        else:
+            window.show()
         
         # Запускаем главный цикл приложения
         sys.exit(app.exec_())

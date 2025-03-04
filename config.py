@@ -4,6 +4,8 @@
 
 import os
 import json
+import logging
+from typing import Dict, Any, Optional
 from PyQt5.QtCore import QSettings
 
 # Директория конфигурации
@@ -21,11 +23,19 @@ DEFAULT_SETTINGS = {
 # Менеджер настроек
 settings = QSettings("ShogunOSC", "ShogunOSCApp")
 
-def load_settings():
-    """Загрузка настроек приложения"""
+def load_settings() -> Dict[str, Any]:
+    """
+    Загрузка настроек приложения
+    
+    Returns:
+        Dict[str, Any]: Словарь с настройками приложения
+    """
     # Создаем каталог конфигурации если не существует
     if not os.path.exists(CONFIG_DIR):
-        os.makedirs(CONFIG_DIR)
+        try:
+            os.makedirs(CONFIG_DIR)
+        except OSError as e:
+            logging.getLogger('ShogunOSC').error(f"Не удалось создать каталог конфигурации: {e}")
     
     settings_dict = DEFAULT_SETTINGS.copy()
     
@@ -36,15 +46,26 @@ def load_settings():
             # Преобразуем строковые значения 'true'/'false' в булевы
             if isinstance(value, str) and value.lower() in ['true', 'false']:
                 value = value.lower() == 'true'
+            # Преобразуем числовые значения из строк в числа
+            elif key == 'osc_port' and isinstance(value, str) and value.isdigit():
+                value = int(value)
             settings_dict[key] = value
     
     return settings_dict
 
-def save_settings(settings_dict):
-    """Сохранение настроек приложения"""
-    for key, value in settings_dict.items():
-        settings.setValue(key, value)
-    settings.sync()
+def save_settings(settings_dict: Dict[str, Any]) -> None:
+    """
+    Сохранение настроек приложения
+    
+    Args:
+        settings_dict: Словарь с настройками для сохранения
+    """
+    try:
+        for key, value in settings_dict.items():
+            settings.setValue(key, value)
+        settings.sync()
+    except Exception as e:
+        logging.getLogger('ShogunOSC').error(f"Ошибка при сохранении настроек: {e}")
 
 # Загружаем настройки
 app_settings = load_settings()
@@ -89,3 +110,15 @@ STATUS_CONNECTED = "Подключено"
 STATUS_DISCONNECTED = "Отключено"
 STATUS_RECORDING_ACTIVE = "Активна"
 STATUS_RECORDING_INACTIVE = "Не активна"
+
+# Версия приложения
+APP_VERSION = "1.0.1"
+
+def get_app_version() -> str:
+    """
+    Возвращает текущую версию приложения
+    
+    Returns:
+        str: Версия приложения
+    """
+    return APP_VERSION

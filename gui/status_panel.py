@@ -30,7 +30,7 @@ class ShogunPanel(QGroupBox):
         # Информация о состоянии
         layout.addWidget(QLabel("Статус:"), 0, 0)
         self.status_label = QLabel(config.STATUS_DISCONNECTED)
-        self.status_label.setStyleSheet("color: red; font-weight: bold;")
+        set_status_style(self.status_label, "disconnected")
         layout.addWidget(self.status_label, 0, 1)
         
         layout.addWidget(QLabel("Запись:"), 1, 0)
